@@ -37,8 +37,8 @@ function artCanvas(art) {
 // ── Version 2D (secours, et image de l'accueil) ──────────────
 export function drawRoom2D(ctx, w, h, img, roomId, format) {
   const room = ROOMS[roomId];
-  const ppm = Math.min(h / 2.5, w / 3.6);
-  const floorY = h * 0.88;
+  const ppm = Math.min(h / 2.5, w / 3.0);
+  const floorY = Math.min(h * 0.92, h / 2 + 1.3 * ppm);
   const cx = w / 2;
   const R = (x, y, rw, rh, c) => { ctx.fillStyle = c; ctx.fillRect(cx + x * ppm, floorY - (y + rh) * ppm, rw * ppm, rh * ppm); };
 

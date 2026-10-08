@@ -121,45 +121,37 @@ export function renderFooter() {
     </div>`;
 }
 
-// ── Couleurs : le site prend les couleurs de l'œuvre regardée ──
-function rgb(hex) {
-  const h = hex.replace("#", "");
-  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-}
-function lum(hex) {
-  const [r, g, b] = rgb(hex).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-function contrast(a, b) {
-  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
-  return (x + 0.05) / (y + 0.05);
-}
-const DARK = "#17131C";
-const LIGHT = "#FFF8F0";
-
-export function paletteFor(art) {
-  const ground = art.ground;
-  const ink = contrast(ground, DARK) >= contrast(ground, LIGHT) ? DARK : LIGHT;
-  const accent = [...art.colors].sort((a, b) => contrast(b, ground) - contrast(a, ground))[0];
-  const accentInk = contrast(accent, DARK) >= contrast(accent, LIGHT) ? DARK : LIGHT;
-  return { ground, ink, accent, accentInk };
-}
-
+// ── Couleur d'ambiance ───────────────────────────────────────
+// La boutique reste sobre (gris perle). Seul un halo très discret
+// derrière la toile 3D reprend la couleur de l'œuvre en cours.
 export function applyPalette(art, { persist = true } = {}) {
-  const p = paletteFor(art);
-  const s = document.documentElement.style;
-  s.setProperty("--ground", p.ground);
-  s.setProperty("--ink", p.ink);
-  s.setProperty("--accent", p.accent);
-  s.setProperty("--accent-ink", p.accentInk);
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", p.ground);
+  const glow = art.colors[0] || "#c9c9c6";
+  document.documentElement.style.setProperty("--glow", glow);
   if (persist) store.set("palette", art.id, true);
 }
 
 export function restorePalette(fallbackId) {
   const art = getArtwork(store.get("palette", true)) || getArtwork(fallbackId) || ARTWORKS[0];
   applyPalette(art, { persist: false });
+}
+
+// ── Inclinaison 3D des œuvres au survol (ordinateur uniquement) ──
+export function enableTilt(root = document) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+  root.addEventListener("pointermove", (e) => {
+    const card = e.target.closest?.(".work");
+    if (!card) return;
+    const frame = card.querySelector(".work-frame");
+    const r = frame.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    frame.style.transform = `translateY(-6px) rotateY(${x * 10}deg) rotateX(${-y * 8}deg)`;
+  });
+  root.addEventListener("pointerout", (e) => {
+    const card = e.target.closest?.(".work");
+    if (card && !card.contains(e.relatedTarget)) card.querySelector(".work-frame").style.transform = "";
+  });
 }
 
 // ── Vignettes ────────────────────────────────────────────────
@@ -196,4 +188,5 @@ export function initSite() {
   renderHeader();
   renderFooter();
   applyI18n();
+  enableTilt();
 }

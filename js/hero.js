@@ -126,6 +126,23 @@ function mount3D(THREE, stage, painter, begin, next, getCurrent) {
     bar(W - 0.2, 0.1, 0, 0));
   scene.add(group);
 
+  // Ombre douce au sol, qui respire avec la toile
+  const sh = document.createElement("canvas");
+  sh.width = sh.height = 128;
+  const sg = sh.getContext("2d");
+  const grad = sg.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, "rgba(0,0,0,0.34)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  sg.fillStyle = grad;
+  sg.fillRect(0, 0, 128, 128);
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(W * 1.5, 0.9),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sh), transparent: true, depthWrite: false }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.set(0, -H / 2 - 0.32, 0);
+  scene.add(shadow);
+
   scene.add(new THREE.AmbientLight(0xffffff, 1.25));
   const key = new THREE.DirectionalLight(0xffffff, 2.2);
   key.position.set(2.5, 3.5, 6);
@@ -168,9 +185,9 @@ function mount3D(THREE, stage, painter, begin, next, getCurrent) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const dist = Math.max((H * 1.22) / 2 / tan, (W * 1.45) / 2 / (tan * camera.aspect));
-    camera.position.set(0, 0, dist);
-    camera.lookAt(0, 0, 0);
+    const dist = Math.max((H * 1.32) / 2 / tan, (W * 1.45) / 2 / (tan * camera.aspect));
+    camera.position.set(0, 0.1, dist);
+    camera.lookAt(0, -0.12, 0);
     camera.updateProjectionMatrix();
   };
   new ResizeObserver(fit).observe(stage);
@@ -227,6 +244,8 @@ function mount3D(THREE, stage, painter, begin, next, getCurrent) {
     group.rotation.y = Math.sin(time * 0.35) * 0.2 + pointer.x * 0.32 + turn;
     group.rotation.x = -pointer.y * 0.14 + Math.sin(time * 0.5) * 0.03;
     group.position.y = Math.sin(time * 0.7) * 0.06;
+    shadow.material.opacity = 0.85 - group.position.y * 2.5;
+    shadow.scale.setScalar(1 - group.position.y * 0.8);
     group.updateMatrixWorld();
 
     for (let k = 0; k < N; k++) {
