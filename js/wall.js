@@ -1,25 +1,43 @@
 // ─────────────────────────────────────────────────────────────
-// Fiche œuvre : le "mur interactif".
-// La toile est accrochée à l'échelle réelle dans une pièce en 3D
-// (salon, chambre ou bureau). On peut changer la taille, la pièce,
-// et faire glisser l'image pour tourner autour.
-// Si la 3D n'est pas disponible, on dessine la même scène en 2D.
+// Fiche œuvre : la toile chez vous.
+//
+// Deux vues :
+//  • « Photo » (par défaut) : une vraie photo d'intérieur, dans
+//    laquelle la toile est accrochée à l'échelle, avec son ombre et
+//    la lumière de la pièce. Le plus réaliste.
+//  • « 3D » : la même pièce reconstruite en 3D (Three.js), dans
+//    laquelle on peut tourner en faisant glisser.
+// Si une photo n'existe pas encore, la vue 3D s'affiche à la place.
 // Toutes les mesures sont en mètres.
 // ─────────────────────────────────────────────────────────────
 
-import { renderArtwork, makeCanvas, RATIO } from "./art.js";
+import { renderArtwork, makeCanvas, RATIO, rng } from "./art.js";
 
+// Réglages de chaque pièce.
+// photo.x / photo.y : centre de la toile dans la photo (0 à 1, de gauche à droite / de haut en bas)
+// photo.meter       : largeur d'1 mètre de mur, en fraction de la largeur de la photo
+//                     (astuce : largeur du canapé en pixels ÷ largeur de la photo ÷ 2,2)
+// photo.light       : -1 si la lumière vient de la gauche, 1 si elle vient de la droite
 export const ROOMS = {
-  salon: { wall: "#E6E1D8", floor: "#A47E5C", art: 1.55 },
-  chambre: { wall: "#D6DCE1", floor: "#C2AE90", art: 1.62 },
-  bureau: { wall: "#E1DCCF", floor: "#86684D", art: 1.6 },
+  salon: {
+    wall: "#E8E4DD", floor: "#B08A63", art: 1.55,
+    photo: { src: "images/rooms/salon.jpg", x: 0.5, y: 0.34, meter: 0.2, light: -1 },
+  },
+  chambre: {
+    wall: "#DCE0E3", floor: "#C9B394", art: 1.62,
+    photo: { src: "images/rooms/chambre.jpg", x: 0.5, y: 0.3, meter: 0.2, light: -1 },
+  },
+  bureau: {
+    wall: "#E4DFD3", floor: "#8E6C4F", art: 1.6,
+    photo: { src: "images/rooms/bureau.jpg", x: 0.5, y: 0.3, meter: 0.2, light: -1 },
+  },
 };
 
 const FURN = {
-  sofa: "#3E4A5E", sofaLight: "#4A576C", pillow: "#C9A227", rug: "#CDC2B1",
-  pot: "#B5532E", leaf: "#4F7A4A",
-  bed: "#8A7969", sheet: "#F3F1EC", duvet: "#7C93A8", stand: "#6E5E50", shade: "#F1E3C2",
-  desk: "#C8B49A", metal: "#2E2E30", laptop: "#A7ADB4",
+  sofa: "#5A6273", sofaLight: "#666F80", pillow: "#C9A227", pillow2: "#E9E1D3", rug: "#D8D0C2",
+  pot: "#C7C2B8", leaf: "#4E7449", trunk: "#6B5442",
+  bed: "#9C8B79", sheet: "#F4F2EE", duvet: "#8EA3B5", stand: "#7A6857", shade: "#F3E8D2",
+  desk: "#C9B496", metal: "#2C2C2F", laptop: "#B4B9BF", chair: "#3A3A3E",
 };
 
 // Part visible de l'image selon le format (l'image source est en 2:3).
@@ -28,13 +46,74 @@ function crop(format) {
   return want >= RATIO ? { fx: RATIO / want, fy: 1 } : { fx: 1, fy: want / RATIO };
 }
 
-function artCanvas(art) {
+export function artCanvas(art) {
   const c = makeCanvas(1024, Math.round(1024 * RATIO));
   renderArtwork(c.getContext("2d"), art, 1024);
   return c;
 }
 
-// ── Version 2D (secours, et image de l'accueil) ──────────────
+// ── Photos des pièces ────────────────────────────────────────
+const photoCache = new Map();
+export function loadRoomPhoto(roomId) {
+  if (!photoCache.has(roomId)) {
+    photoCache.set(roomId, new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = ROOMS[roomId].photo.src;
+    }));
+  }
+  return photoCache.get(roomId);
+}
+
+// Dessine la photo de la pièce (cadrée sur la toile) et la toile accrochée.
+export function drawRoomPhoto(ctx, w, h, photo, img, roomId, format) {
+  const p = ROOMS[roomId].photo;
+  const pw = photo.naturalWidth, ph = photo.naturalHeight;
+  const scale = Math.max(w / pw, h / ph);
+  const sw = pw * scale, sh = ph * scale;
+  const ox = Math.min(0, Math.max(w - sw, w / 2 - p.x * sw));
+  const oy = Math.min(0, Math.max(h - sh, h * 0.42 - p.y * sh));
+  ctx.drawImage(photo, ox, oy, sw, sh);
+
+  const m = p.meter * sw;                 // 1 mètre en pixels
+  const aw = (format.w / 100) * m, ah = (format.h / 100) * m;
+  const cx = ox + p.x * sw, cy = oy + p.y * sh;
+  const x = cx - aw / 2, y = cy - ah / 2;
+  const depth = 0.035 * m;                // épaisseur du châssis
+
+  ctx.save();
+  // Grande ombre très douce, puis ombre de contact plus nette
+  ctx.fillStyle = "rgba(0,0,0,1)";
+  ctx.shadowColor = "rgba(20,16,12,0.22)";
+  ctx.shadowBlur = depth * 9;
+  ctx.shadowOffsetX = -p.light * depth * 1.2;
+  ctx.shadowOffsetY = depth * 2.2;
+  ctx.fillRect(x, y, aw, ah);
+  ctx.shadowColor = "rgba(20,16,12,0.38)";
+  ctx.shadowBlur = depth * 2;
+  ctx.shadowOffsetX = -p.light * depth * 0.6;
+  ctx.shadowOffsetY = depth * 0.9;
+  ctx.fillRect(x, y, aw, ah);
+  ctx.restore();
+
+  const { fx, fy } = crop(format);
+  const iw = img.width * fx, ih = img.height * fy;
+  ctx.drawImage(img, (img.width - iw) / 2, (img.height - ih) / 2, iw, ih, x, y, aw, ah);
+
+  // Lumière de la pièce sur la toile : plus claire côté fenêtre
+  const g = ctx.createLinearGradient(p.light < 0 ? x : x + aw, y, p.light < 0 ? x + aw : x, y + ah);
+  g.addColorStop(0, "rgba(255,250,240,0.10)");
+  g.addColorStop(0.55, "rgba(255,255,255,0)");
+  g.addColorStop(1, "rgba(0,0,0,0.10)");
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, aw, ah);
+  // Fine arête du châssis côté ombre
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.fillRect(p.light < 0 ? x + aw - 1 : x, y, 1, ah);
+}
+
+// ── Version 2D simple (secours si ni photo ni 3D) ────────────
 export function drawRoom2D(ctx, w, h, img, roomId, format) {
   const room = ROOMS[roomId];
   const ppm = Math.min(h / 2.5, w / 3.0);
@@ -44,7 +123,9 @@ export function drawRoom2D(ctx, w, h, img, roomId, format) {
 
   ctx.fillStyle = room.wall; ctx.fillRect(0, 0, w, floorY);
   ctx.fillStyle = room.floor; ctx.fillRect(0, floorY, w, h - floorY);
-  ctx.fillStyle = "rgba(0,0,0,0.06)"; ctx.fillRect(0, floorY - 0.08 * ppm, w, 0.08 * ppm);
+  const ao = ctx.createLinearGradient(0, floorY - 0.3 * ppm, 0, floorY);
+  ao.addColorStop(0, "rgba(0,0,0,0)"); ao.addColorStop(1, "rgba(0,0,0,0.12)");
+  ctx.fillStyle = ao; ctx.fillRect(0, floorY - 0.3 * ppm, w, 0.3 * ppm);
 
   if (roomId === "salon") {
     R(-1.1, 0.05, 2.2, 0.85, FURN.sofa);
@@ -79,15 +160,99 @@ export function drawRoom2D(ctx, w, h, img, roomId, format) {
   ctx.restore();
 }
 
-export async function mountWall(container, art, { room = "salon", format }) {
+// ── Composant principal ──────────────────────────────────────
+export async function mountWall(container, art, { room = "salon", format, onView }) {
   const img = artCanvas(art);
+  const state = { room, format, view: null, shown: { w: format.w, h: format.h } };
+
+  const photoCanvas = makeCanvas(10, 10);
+  photoCanvas.className = "wall-photo";
+  photoCanvas.hidden = true;
+  container.append(photoCanvas);
+
+  let scene3d = null;
+  const ensure3D = async () => {
+    if (!scene3d) scene3d = await create3D(container, art, img, state.room, state.format);
+    return scene3d;
+  };
+
+  const drawPhoto = async () => {
+    const photo = await loadRoomPhoto(state.room);
+    if (!photo || state.view !== "photo") return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = container.clientWidth || 600, h = container.clientHeight || 450;
+    photoCanvas.width = Math.round(w * dpr);
+    photoCanvas.height = Math.round(h * dpr);
+    drawRoomPhoto(photoCanvas.getContext("2d"), photoCanvas.width, photoCanvas.height, photo, img, state.room, state.shown);
+  };
+  new ResizeObserver(() => drawPhoto()).observe(container);
+
+  // Changement de taille en douceur dans la vue photo
+  let anim = 0;
+  const animateFormat = () => {
+    cancelAnimationFrame(anim);
+    const from = { ...state.shown };
+    const to = { w: state.format.w, h: state.format.h };
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / 450);
+      const e = 1 - (1 - p) ** 3;
+      state.shown = { w: from.w + (to.w - from.w) * e, h: from.h + (to.h - from.h) * e };
+      drawPhoto();
+      if (p < 1) anim = requestAnimationFrame(step);
+    };
+    anim = requestAnimationFrame(step);
+  };
+
+  const hasPhoto = async (r = state.room) => !!(await loadRoomPhoto(r));
+
+  const setView = async (view) => {
+    if (view === "photo" && !(await hasPhoto())) view = "3d";
+    state.view = view;
+    photoCanvas.hidden = view !== "photo";
+    if (view === "3d") {
+      const s = await ensure3D();
+      s.el.hidden = false;
+      s.setRoom(state.room);
+      s.setFormat(state.format, true);
+    } else {
+      if (scene3d) scene3d.el.hidden = true;
+      state.shown = { w: state.format.w, h: state.format.h };
+      drawPhoto();
+    }
+    onView?.(view);
+    return view;
+  };
+
+  await setView((await hasPhoto(room)) ? "photo" : "3d");
+
+  return {
+    setView,
+    hasPhoto,
+    get view() { return state.view; },
+    async setRoom(r) {
+      state.room = r;
+      if (state.view === "photo") {
+        if (await hasPhoto(r)) drawPhoto();
+        else await setView("3d");
+      } else scene3d?.setRoom(r);
+    },
+    setFormat(f) {
+      state.format = f;
+      if (state.view === "photo") animateFormat();
+      else scene3d?.setFormat(f);
+    },
+  };
+}
+
+async function create3D(container, art, img, roomId, format) {
   let THREE = null;
   try { THREE = await import("three"); } catch { THREE = null; }
   if (THREE && webglAvailable()) {
-    try { return mount3D(THREE, container, art, img, room, format); }
-    catch (err) { console.warn("3D indisponible, passage en 2D", err); container.querySelector("canvas")?.remove(); }
+    try { return await mount3D(THREE, container, art, img, roomId, format); }
+    catch (err) { console.warn("3D indisponible, passage en 2D", err); container.querySelector(".wall-gl")?.remove(); }
   }
-  return mount2D(container, img, room, format);
+  return mount2D(container, img, roomId, format);
 }
 
 function webglAvailable() {
@@ -102,6 +267,7 @@ function mount2D(container, img, room, format) {
   c.className = "wall-2d";
   container.append(c);
   const draw = () => {
+    if (c.hidden) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = container.clientWidth || 600, h = container.clientHeight || 450;
     c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
@@ -110,38 +276,137 @@ function mount2D(container, img, room, format) {
   new ResizeObserver(draw).observe(container);
   draw();
   return {
-    mode: "2d",
+    el: c,
     setRoom(r) { room = r; draw(); },
     setFormat(f) { format = f; draw(); },
   };
 }
 
-function mount3D(THREE, container, art, img, roomId, format) {
+// ── Textures fabriquées par le code (parquet, enduit, tissu) ──
+function woodTexture(THREE, base) {
+  const c = makeCanvas(1024, 1024);
+  const g = c.getContext("2d");
+  const r = rng(7);
+  const rows = 8, plankH = 1024 / rows;
+  const tint = (hex, k) => {
+    const n = parseInt(hex.slice(1), 16);
+    const ch = (v) => Math.max(0, Math.min(255, Math.round(v * k)));
+    return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+  };
+  for (let row = 0; row < rows; row++) {
+    let x = -r() * 400;
+    while (x < 1024) {
+      const len = 300 + r() * 380;
+      g.fillStyle = tint(base, 0.88 + r() * 0.2);
+      g.fillRect(x, row * plankH, len, plankH);
+      // veines du bois
+      for (let k = 0; k < 14; k++) {
+        g.strokeStyle = `rgba(60,35,15,${0.04 + r() * 0.07})`;
+        g.lineWidth = 1 + r() * 2;
+        g.beginPath();
+        const y0 = row * plankH + r() * plankH;
+        g.moveTo(x, y0);
+        for (let s = 0; s <= 10; s++) g.lineTo(x + (len * s) / 10, y0 + Math.sin(s * 0.9 + k) * (2 + r() * 3));
+        g.stroke();
+      }
+      g.fillStyle = "rgba(40,25,10,0.45)";
+      g.fillRect(x, row * plankH, 2, plankH);
+      x += len;
+    }
+    g.fillStyle = "rgba(40,25,10,0.5)";
+    g.fillRect(0, row * plankH, 1024, 2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+function noiseTexture(THREE, base, amount, size = 256) {
+  const c = makeCanvas(size, size);
+  const g = c.getContext("2d");
+  g.fillStyle = base;
+  g.fillRect(0, 0, size, size);
+  const d = g.getImageData(0, 0, size, size);
+  const r = rng(11);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const n = (r() - 0.5) * amount;
+    d.data[i] += n; d.data[i + 1] += n; d.data[i + 2] += n;
+  }
+  g.putImageData(d, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+function gradientTexture(THREE, stops) {
+  const c = makeCanvas(4, 256);
+  const g = c.getContext("2d");
+  const grd = g.createLinearGradient(0, 0, 0, 256);
+  stops.forEach(([o, col]) => grd.addColorStop(o, col));
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 4, 256);
+  return new THREE.CanvasTexture(c);
+}
+
+async function mount3D(THREE, container, art, img, roomId, format) {
+  // Modules optionnels : éclairage d'intérieur et formes arrondies.
+  let RoomEnvironment = null, RoundedBoxGeometry = null;
+  try { ({ RoomEnvironment } = await import("three/addons/environments/RoomEnvironment.js")); } catch { /* facultatif */ }
+  try { ({ RoundedBoxGeometry } = await import("three/addons/geometries/RoundedBoxGeometry.js")); } catch { /* facultatif */ }
+
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.NeutralToneMapping ?? THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
   renderer.domElement.className = "wall-gl";
   container.append(renderer.domElement);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
+
+  // Éclairage : lumière d'intérieur douce (reflets réalistes) + soleil de fenêtre.
+  if (RoomEnvironment) {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.7;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xb7a58f, 0.6));
+  } else {
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xb7a58f, 2.4));
+  }
+  const sun = new THREE.DirectionalLight(0xfff1de, 1.7);
+  sun.position.set(-3.2, 4.5, 4.2);           // fenêtre à gauche
+  sun.target.position.set(0, 1.2, 0);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -2, near: 0.5, far: 16 });
+  sun.shadow.bias = -0.0003;
+  sun.shadow.normalBias = 0.02;
+  scene.add(sun, sun.target);
+
   const mats = new Map();
-  const mat = (c) => {
-    if (!mats.has(c)) mats.set(c, new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }));
-    return mats.get(c);
+  const mat = (c, opts = {}) => {
+    const key = c + JSON.stringify(opts);
+    if (!mats.has(key)) mats.set(key, new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, ...opts }));
+    return mats.get(key);
   };
-  const box = (w, h, d, c, x, y, z) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c));
+  const shape = (w, h, d, radius) => RoundedBoxGeometry && radius
+    ? new RoundedBoxGeometry(w, h, d, 4, Math.min(radius, w / 2, h / 2, d / 2))
+    : new THREE.BoxGeometry(w, h, d);
+  const box = (w, h, d, material, x, y, z, radius = 0) => {
+    const m = new THREE.Mesh(shape(w, h, d, radius), typeof material === "string" ? mat(material) : material);
     m.position.set(x, y, z);
     m.castShadow = true;
     m.receiveShadow = true;
     return m;
   };
 
-  // Murs et sol
-  const wallMat = new THREE.MeshStandardMaterial({ roughness: 0.95 });
-  const floorMat = new THREE.MeshStandardMaterial({ roughness: 0.7 });
+  // Mur (enduit) et sol (parquet)
+  const wallMat = new THREE.MeshStandardMaterial({ roughness: 0.96 });
+  const floorMat = new THREE.MeshStandardMaterial({ roughness: 0.55 });
   const wall = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
   wall.position.set(0, 3, 0);
   wall.receiveShadow = true;
@@ -149,104 +414,147 @@ function mount3D(THREE, container, art, img, roomId, format) {
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, 0, 5);
   floor.receiveShadow = true;
-  scene.add(wall, floor, box(16, 0.09, 0.02, "#F4F2EE", 0, 0.045, 0.01));
+  scene.add(wall, floor, box(16, 0.1, 0.018, mat("#F5F3EF", { roughness: 0.5 }), 0, 0.05, 0.009));
+
+  // Ombres d'angle (occlusion ambiante) entre le mur et le sol
+  const aoWall = new THREE.Mesh(new THREE.PlaneGeometry(16, 0.45), new THREE.MeshBasicMaterial({
+    map: gradientTexture(THREE, [[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0.22)"]]), transparent: true, depthWrite: false,
+  }));
+  aoWall.position.set(0, 0.225, 0.002);
+  const aoFloor = new THREE.Mesh(new THREE.PlaneGeometry(16, 0.5), new THREE.MeshBasicMaterial({
+    map: gradientTexture(THREE, [[0, "rgba(0,0,0,0.2)"], [1, "rgba(0,0,0,0)"]]), transparent: true, depthWrite: false,
+  }));
+  aoFloor.rotation.x = -Math.PI / 2;
+  aoFloor.position.set(0, 0.002, 0.25);
+  scene.add(aoWall, aoFloor);
 
   // La toile
   const tex = new THREE.CanvasTexture(img);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const edge = new THREE.MeshStandardMaterial({ color: art.ground, roughness: 0.9 });
-  const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
+  const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82 });
   const artMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.035), [edge, edge, edge, edge, front, edge]);
   artMesh.castShadow = true;
   scene.add(artMesh);
 
-  // Lumières
-  scene.add(new THREE.AmbientLight(0xffffff, 1.35));
-  const sun = new THREE.DirectionalLight(0xfff3e4, 2.1);
-  sun.position.set(2.2, 4.2, 4.5);
-  sun.target.position.set(0, 1.3, 0);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -3.5, right: 3.5, top: 3.5, bottom: -3.5, near: 0.5, far: 14 });
-  sun.shadow.bias = -0.0004;
-  sun.shadow.normalBias = 0.02;
-  scene.add(sun, sun.target);
+  // Ombre de contact derrière la toile
+  const halo = makeCanvas(128, 128);
+  const hg = halo.getContext("2d");
+  const hgr = hg.createRadialGradient(64, 64, 20, 64, 64, 64);
+  hgr.addColorStop(0, "rgba(0,0,0,0.25)"); hgr.addColorStop(1, "rgba(0,0,0,0)");
+  hg.fillStyle = hgr; hg.fillRect(0, 0, 128, 128);
+  const artShadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+    map: new THREE.CanvasTexture(halo), transparent: true, depthWrite: false,
+  }));
+  artShadow.position.z = 0.003;
+  scene.add(artShadow);
+
+  const fabric = (c) => new THREE.MeshStandardMaterial({ map: noiseTexture(THREE, c, 18), roughness: 0.95 });
 
   // Mobilier
   const builders = {
     salon(g) {
-      g.add(box(3.2, 0.012, 2.2, FURN.rug, 0, 0.006, 1.2));
-      g.add(box(2.2, 0.38, 0.92, FURN.sofa, 0, 0.27, 0.56));
-      g.add(box(2.2, 0.52, 0.22, FURN.sofa, 0, 0.7, 0.2));
-      g.add(box(0.2, 0.6, 0.92, FURN.sofa, -1.0, 0.38, 0.56), box(0.2, 0.6, 0.92, FURN.sofa, 1.0, 0.38, 0.56));
-      g.add(box(0.88, 0.13, 0.66, FURN.sofaLight, -0.45, 0.52, 0.62), box(0.88, 0.13, 0.66, FURN.sofaLight, 0.45, 0.52, 0.62));
-      const p = box(0.42, 0.36, 0.12, FURN.pillow, -0.62, 0.74, 0.36); p.rotation.z = 0.12; g.add(p);
-      [-1.0, 1.0].forEach((x) => [0.15, 0.95].forEach((z) => g.add(box(0.06, 0.08, 0.06, FURN.metal, x, 0.04, z))));
-      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.36, 24), mat(FURN.pot));
-      pot.position.set(1.7, 0.18, 0.38); pot.castShadow = true;
-      const leaves = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), mat(FURN.leaf));
-      leaves.position.set(1.7, 0.72, 0.38); leaves.scale.set(1, 1.35, 1); leaves.castShadow = true;
-      g.add(pot, leaves);
+      const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.2), new THREE.MeshStandardMaterial({ map: noiseTexture(THREE, FURN.rug, 26), roughness: 1 }));
+      rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.004, 1.25); rug.receiveShadow = true; g.add(rug);
+      const sofa = fabric(FURN.sofa), seat = fabric(FURN.sofaLight);
+      g.add(box(2.2, 0.36, 0.92, sofa, 0, 0.27, 0.56, 0.06));
+      g.add(box(2.2, 0.52, 0.24, sofa, 0, 0.7, 0.2, 0.08));
+      g.add(box(0.22, 0.6, 0.92, sofa, -1.0, 0.39, 0.56, 0.08), box(0.22, 0.6, 0.92, sofa, 1.0, 0.39, 0.56, 0.08));
+      g.add(box(0.88, 0.15, 0.66, seat, -0.45, 0.52, 0.62, 0.06), box(0.88, 0.15, 0.66, seat, 0.45, 0.52, 0.62, 0.06));
+      const p1 = box(0.44, 0.38, 0.13, fabric(FURN.pillow), -0.6, 0.76, 0.37, 0.06); p1.rotation.z = 0.12; g.add(p1);
+      const p2 = box(0.42, 0.36, 0.13, fabric(FURN.pillow2), 0.58, 0.75, 0.37, 0.06); p2.rotation.z = -0.1; g.add(p2);
+      [-1.0, 1.0].forEach((x) => [0.15, 0.95].forEach((z) => g.add(box(0.05, 0.09, 0.05, FURN.metal, x, 0.045, z))));
+      // plante
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.14, 0.4, 32), mat(FURN.pot, { roughness: 0.6 }));
+      pot.position.set(1.75, 0.2, 0.4); pot.castShadow = true; g.add(pot);
+      const r = rng(3);
+      for (let i = 0; i < 16; i++) {
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), mat(FURN.leaf, { roughness: 0.6 }));
+        const a = r() * Math.PI * 2, rad = 0.05 + r() * 0.2;
+        leaf.position.set(1.75 + Math.cos(a) * rad, 0.55 + r() * 0.65, 0.4 + Math.sin(a) * rad);
+        leaf.scale.set(0.5, 1.4, 0.18);
+        leaf.rotation.set(r() - 0.5, a, (r() - 0.5) * 1.2);
+        leaf.castShadow = true;
+        g.add(leaf);
+      }
+      // table basse
+      g.add(box(0.9, 0.04, 0.5, mat("#D9CBB6", { roughness: 0.4 }), 0, 0.38, 1.55, 0.015));
+      [-0.4, 0.4].forEach((x) => [1.35, 1.75].forEach((z) => g.add(box(0.03, 0.36, 0.03, FURN.metal, x, 0.18, z))));
     },
     chambre(g) {
-      g.add(box(1.9, 1.0, 0.08, FURN.bed, 0, 0.5, 0.05));
-      g.add(box(1.8, 0.3, 2.1, FURN.bed, 0, 0.2, 1.1));
-      g.add(box(1.7, 0.2, 2.0, FURN.sheet, 0, 0.45, 1.08));
-      g.add(box(1.74, 0.09, 1.35, FURN.duvet, 0, 0.58, 1.42));
-      g.add(box(0.62, 0.14, 0.4, FURN.sheet, -0.42, 0.62, 0.32), box(0.62, 0.14, 0.4, FURN.sheet, 0.42, 0.62, 0.32));
+      const wood = mat(FURN.bed, { roughness: 0.6 });
+      g.add(box(1.9, 1.05, 0.08, fabric(FURN.bed), 0, 0.52, 0.05, 0.03));
+      g.add(box(1.8, 0.3, 2.1, wood, 0, 0.2, 1.1, 0.03));
+      g.add(box(1.7, 0.22, 2.0, fabric(FURN.sheet), 0, 0.46, 1.08, 0.08));
+      g.add(box(1.76, 0.1, 1.35, fabric(FURN.duvet), 0, 0.6, 1.42, 0.05));
+      g.add(box(0.62, 0.15, 0.42, fabric(FURN.sheet), -0.42, 0.64, 0.33, 0.07), box(0.62, 0.15, 0.42, fabric(FURN.sheet), 0.42, 0.64, 0.33, 0.07));
       [-1.32, 1.32].forEach((x) => {
-        g.add(box(0.46, 0.5, 0.4, FURN.stand, x, 0.25, 0.22));
-        const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.2, 24), mat(FURN.shade));
-        lamp.position.set(x, 0.72, 0.22); lamp.castShadow = true;
-        g.add(lamp, box(0.03, 0.12, 0.03, FURN.metal, x, 0.56, 0.22));
+        g.add(box(0.46, 0.5, 0.4, mat(FURN.stand, { roughness: 0.55 }), x, 0.25, 0.22, 0.02));
+        const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.15, 0.22, 32, 1, true), mat(FURN.shade, { side: THREE.DoubleSide, emissive: "#3a2f1c" }));
+        lamp.position.set(x, 0.74, 0.22); lamp.castShadow = true;
+        g.add(lamp, box(0.025, 0.14, 0.025, FURN.metal, x, 0.57, 0.22));
       });
     },
     bureau(g) {
-      g.add(box(1.4, 0.04, 0.7, FURN.desk, 0, 0.74, 0.4));
-      [-0.66, 0.66].forEach((x) => [0.1, 0.7].forEach((z) => g.add(box(0.035, 0.72, 0.035, FURN.metal, x, 0.36, z))));
-      g.add(box(0.34, 0.02, 0.24, FURN.laptop, -0.25, 0.77, 0.45));
-      const screen = box(0.34, 0.23, 0.012, FURN.laptop, -0.25, 0.88, 0.33); screen.rotation.x = -0.25; g.add(screen);
-      g.add(box(0.05, 0.4, 0.05, FURN.metal, 0.45, 0.96, 0.25));
-      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.14, 24, 1, true), mat(FURN.shade));
+      const top = mat(FURN.desk, { roughness: 0.45 });
+      g.add(box(1.4, 0.035, 0.7, top, 0, 0.74, 0.4, 0.01));
+      [-0.66, 0.66].forEach((x) => [0.1, 0.7].forEach((z) => g.add(box(0.03, 0.72, 0.03, FURN.metal, x, 0.36, z))));
+      g.add(box(0.34, 0.015, 0.24, mat(FURN.laptop, { metalness: 0.6, roughness: 0.35 }), -0.25, 0.765, 0.45, 0.006));
+      const screen = box(0.34, 0.23, 0.01, mat(FURN.laptop, { metalness: 0.6, roughness: 0.35 }), -0.25, 0.88, 0.33, 0.004); screen.rotation.x = -0.25; g.add(screen);
+      g.add(box(0.025, 0.42, 0.025, FURN.metal, 0.45, 0.96, 0.25));
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.14, 32, 1, true), mat(FURN.shade, { side: THREE.DoubleSide }));
       shade.position.set(0.45, 1.18, 0.3); g.add(shade);
-      g.add(box(0.48, 0.06, 0.46, FURN.metal, 0.1, 0.46, 1.05));
-      g.add(box(0.46, 0.48, 0.05, FURN.metal, 0.1, 0.74, 1.27));
-      g.add(box(0.05, 0.43, 0.05, FURN.metal, 0.1, 0.215, 1.05));
+      const chair = fabric(FURN.chair);
+      g.add(box(0.48, 0.07, 0.46, chair, 0.1, 0.47, 1.05, 0.03));
+      g.add(box(0.46, 0.46, 0.06, chair, 0.1, 0.76, 1.27, 0.03));
+      g.add(box(0.04, 0.43, 0.04, FURN.metal, 0.1, 0.215, 1.05));
+      // étagère murale avec livres
+      g.add(box(0.9, 0.03, 0.22, top, 1.45, 1.35, 0.12, 0.01));
+      const r = rng(5);
+      for (let i = 0; i < 9; i++) {
+        const h = 0.18 + r() * 0.08;
+        g.add(box(0.035 + r() * 0.02, h, 0.16, ["#7E5A4A", "#3E556E", "#C8B27E", "#5E6B55", "#A8483C"][i % 5], 1.1 + i * 0.05, 1.365 + h / 2, 0.12));
+      }
     },
   };
   let furniture = new THREE.Group();
   scene.add(furniture);
 
+  const target = new THREE.Vector3(0, 1.35, 0);
   const applyRoom = (id) => {
-    roomId = id;
     const room = ROOMS[id];
     scene.remove(furniture);
     furniture.traverse((o) => o.geometry?.dispose());
     furniture = new THREE.Group();
     builders[id](furniture);
     scene.add(furniture);
-    wallMat.color.set(room.wall);
-    floorMat.color.set(room.floor);
+    wallMat.map?.dispose();
+    floorMat.map?.dispose();
+    wallMat.map = noiseTexture(THREE, room.wall, 7, 512);
+    wallMat.map.repeat.set(6, 2);
+    floorMat.map = woodTexture(THREE, room.floor);
+    floorMat.map.repeat.set(4, 2.5);
+    wallMat.needsUpdate = floorMat.needsUpdate = true;
     scene.background = new THREE.Color(room.wall);
     target.y = room.art - 0.2;
     artMesh.position.y = room.art;
+    artShadow.position.y = room.art - 0.03;
   };
 
   // Taille de la toile, avec une petite transition
   const scale = { w: format.w / 100, h: format.h / 100, fw: format.w / 100, fh: format.h / 100, t: 1 };
   const applyFormat = (f, instant = false) => {
-    format = f;
     const { fx, fy } = crop(f);
     tex.repeat.set(fx, fy);
     tex.offset.set((1 - fx) / 2, (1 - fy) / 2);
-    scale.fw = scale.w; scale.fh = scale.h;
+    scale.fw = instant ? f.w / 100 : scale.w;
+    scale.fh = instant ? f.h / 100 : scale.h;
     scale.w = f.w / 100; scale.h = f.h / 100;
     scale.t = instant ? 1 : 0;
   };
 
   // Caméra : on tourne autour du mur en faisant glisser
-  const target = new THREE.Vector3(0, 1.35, 0);
   const view = { yaw: 0.14, pitch: 0.08, ty: 0.14, tp: 0.08 };
   const placeCamera = () => {
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
@@ -292,11 +600,13 @@ function mount3D(THREE, container, art, img, roomId, format) {
     requestAnimationFrame(loop);
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    if (!visible || document.hidden) return;
+    if (!visible || document.hidden || el.hidden) return;
     if (scale.t < 1) scale.t = Math.min(1, scale.t + dt / 0.5);
     const e = 1 - (1 - scale.t) ** 3;
-    artMesh.scale.set(scale.fw + (scale.w - scale.fw) * e, scale.fh + (scale.h - scale.fh) * e, 1);
-    artMesh.position.z = 0.0175 + 0.004;
+    const sw = scale.fw + (scale.w - scale.fw) * e, sh = scale.fh + (scale.h - scale.fh) * e;
+    artMesh.scale.set(sw, sh, 1);
+    artMesh.position.z = 0.0175 + 0.006;
+    artShadow.scale.set(sw * 1.25, sh * 1.18, 1);
     view.yaw += (view.ty - view.yaw) * 0.12;
     view.pitch += (view.tp - view.pitch) * 0.12;
     placeCamera();
@@ -305,8 +615,8 @@ function mount3D(THREE, container, art, img, roomId, format) {
   requestAnimationFrame(loop);
 
   return {
-    mode: "3d",
+    el,
     setRoom: applyRoom,
-    setFormat: (f) => applyFormat(f),
+    setFormat: (f, instant) => applyFormat(f, instant),
   };
 }

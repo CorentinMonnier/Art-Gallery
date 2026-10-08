@@ -36,3 +36,12 @@ Chaque œuvre a un champ `shopifyHandle` dans `js/data.js` pour la relier à son
 Les pages utilisent des modules JavaScript : il faut un petit serveur local, pas un double-clic sur le fichier.
 Dans un terminal, dans ce dossier : `npx serve .` puis ouvre l'adresse affichée.
 (Ou simplement : pousse sur GitHub, Vercel met le site en ligne.)
+
+## Photos des pièces (vue « Photo » des fiches œuvres)
+Place 3 photos d'intérieur dans `images/rooms/` : `salon.jpg`, `chambre.jpg`, `bureau.jpg`
+(paysage, vue de face, mur vide au centre). Tant qu'une photo manque, la fiche affiche la vue 3D.
+Le placement de la toile se règle dans `js/wall.js`, objet `ROOMS` :
+- `x`, `y` : centre de la toile dans la photo (0 à 1) ;
+- `meter` : largeur d'1 mètre de mur en fraction de la largeur de la photo
+  (largeur du canapé en pixels ÷ largeur de la photo ÷ 2,2) ;
+- `light` : -1 si la lumière vient de la gauche, 1 si elle vient de la droite.

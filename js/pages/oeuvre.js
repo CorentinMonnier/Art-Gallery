@@ -47,7 +47,23 @@ if (!art) {
   // Plus tard : ce bouton enverra art.shopifyHandle + state.format.id au panier Shopify.
   add.dataset.handle = art.shopifyHandle || "";
 
-  const wall = await mountWall($("#wall-stage"), art, { room: state.room, format: state.format });
+  // Vue photo / 3D
+  const syncView = async (view) => {
+    document.querySelectorAll("#views .seg").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+    $("#wall-hint").textContent = t(view === "photo" ? "work.hint.photo" : "work.drag");
+    // Le bouton Photo n'apparaît que si la photo de cette pièce existe
+    const photoBtn = document.querySelector('#views [data-view="photo"]');
+    photoBtn.hidden = wall ? !(await wall.hasPhoto(state.room)) : false;
+    document.getElementById("views").hidden = photoBtn.hidden;
+  };
+  let wall = null;
+  wall = await mountWall($("#wall-stage"), art, { room: state.room, format: state.format, onView: (v) => syncView(v) });
+  syncView(wall.view);
+  window.addEventListener("langchange", () => syncView(wall.view));
+  $("#views").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-view]");
+    if (b) await wall.setView(b.dataset.view);
+  });
 
   $("#sizes").addEventListener("change", (e) => {
     state.format = CONFIG.formats.find((f) => f.id === e.target.value);
@@ -55,11 +71,12 @@ if (!art) {
     $("#work-scale").textContent = t("work.scale", { w: state.format.w, h: state.format.h });
     wall.setFormat(state.format);
   });
-  $("#rooms").addEventListener("click", (e) => {
+  $("#rooms").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-room]");
     if (!b) return;
     state.room = b.dataset.room;
     document.querySelectorAll("#rooms .seg").forEach((s) => s.setAttribute("aria-pressed", String(s === b)));
-    wall.setRoom(state.room);
+    await wall.setRoom(state.room);
+    syncView(wall.view);
   });
 }

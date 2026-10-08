@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500;1,6..96,600&display=swap">
   <link rel="stylesheet" href="css/style.css">
   <!-- Three.js (3D) chargé depuis un CDN -->
-  <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js"}}</script>
+  <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 </head>
 <body data-page="work" data-title="title.work">
   <header id="site-header"></header>
@@ -20,8 +20,14 @@
     <section class="wrap work-layout">
       <div class="wall-col">
         <div class="wall-stage" id="wall-stage" role="img" data-i18n-aria="work.stage" aria-label="Aperçu de l'œuvre accrochée dans une pièce"></div>
-        <div class="segs" id="rooms" role="group" data-i18n-aria="work.room" aria-label="Pièce"></div>
-        <p class="hint" data-i18n="work.drag">Faites glisser l'image pour tourner autour de la pièce.</p>
+        <div class="wall-controls">
+          <div class="segs" id="rooms" role="group" data-i18n-aria="work.room" aria-label="Pièce"></div>
+          <div class="segs" id="views" role="group" data-i18n-aria="work.view" aria-label="Vue">
+            <button type="button" class="seg" data-view="photo" aria-pressed="true" data-i18n="work.view.photo">Photo</button>
+            <button type="button" class="seg" data-view="3d" aria-pressed="false">3D</button>
+          </div>
+        </div>
+        <p class="hint" id="wall-hint"></p>
       </div>
 
       <div class="buy glass">

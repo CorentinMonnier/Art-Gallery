@@ -5,11 +5,11 @@
    apportent la couleur. Pensé d'abord pour le téléphone.
    ────────────────────────────────────────────────────────────── */
 
-@property --glow {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #d6d6d8;
-}
+/* Couleurs animables : le fond glisse en douceur d'une œuvre à l'autre */
+@property --glow { syntax: "<color>"; inherits: true; initial-value: #d6d6d8; }
+@property --c1 { syntax: "<color>"; inherits: true; initial-value: #d6d6d8; }
+@property --c2 { syntax: "<color>"; inherits: true; initial-value: #e2e2e4; }
+@property --c3 { syntax: "<color>"; inherits: true; initial-value: #cfcfd3; }
 
 :root {
   /* Couleurs */
@@ -43,7 +43,7 @@
   --header-h: 64px;
   --ease: cubic-bezier(.2, .7, .2, 1);
   color-scheme: light;
-  transition: --glow 1.8s var(--ease);
+  transition: --glow 1.8s var(--ease), --c1 1.8s var(--ease), --c2 1.8s var(--ease), --c3 1.8s var(--ease);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -61,16 +61,20 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Fond fixe : perle lumineuse, deux halos très doux pour donner de la
-   matière au verre, et un reflet presque invisible de l'œuvre en cours. */
+/* Fond fixe : perle lumineuse teintée par les couleurs de l'œuvre en cours.
+   Trois grands halos flous (deux couleurs vives + la couleur de fond de
+   l'œuvre) passent derrière les surfaces en verre. Le blanc par-dessus
+   garde l'ensemble clair et transparent. */
 body::before {
   content: "";
-  position: fixed; inset: 0; z-index: -1;
+  position: fixed; inset: -10%; z-index: -1;
   background:
-    radial-gradient(60vmax 50vmax at 88% -8%, #FFFFFF 0%, rgba(255, 255, 255, 0) 70%),
-    radial-gradient(50vmax 40vmax at 8% 62%, rgba(255, 255, 255, .85) 0%, rgba(255, 255, 255, 0) 70%),
-    radial-gradient(45vmax 35vmax at 70% 85%, color-mix(in srgb, var(--glow) 9%, transparent) 0%, transparent 70%),
+    radial-gradient(40vmax 30vmax at 50% 38%, rgba(255, 255, 255, .7) 0%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(55vmax 45vmax at 88% 4%, color-mix(in srgb, var(--c1) 34%, transparent) 0%, transparent 68%),
+    radial-gradient(50vmax 42vmax at 4% 58%, color-mix(in srgb, var(--c2) 30%, transparent) 0%, transparent 68%),
+    radial-gradient(48vmax 40vmax at 72% 98%, color-mix(in srgb, var(--c3) 24%, transparent) 0%, transparent 70%),
     linear-gradient(180deg, var(--pearl) 0%, #EDEDEF 55%, var(--pearl-deep) 100%);
+  filter: saturate(115%);
 }
 
 [hidden] { display: none !important; }
@@ -246,7 +250,7 @@ main { display: flex; flex-direction: column; gap: clamp(56px, 9vw, 112px); padd
   font-size: var(--step-3); line-height: 1.05; letter-spacing: -0.02em;
 }
 .section-head p, .page-head p { color: var(--muted); }
-.page-head { display: flex; flex-direction: column; gap: 12px; padding-top: clamp(28px, 6vw, 64px); }
+.page-head { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding-top: clamp(28px, 6vw, 64px); }
 .page-head h1 { font-size: var(--step-4); }
 .page-head p { font-size: var(--step-1); }
 
@@ -312,7 +316,9 @@ main { display: flex; flex-direction: column; gap: clamp(56px, 9vw, 112px); padd
   touch-action: pan-y;
 }
 @media (max-width: 600px) { .wall-stage { aspect-ratio: 4 / 5; } }
-.wall-gl, .wall-2d { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+.wall-gl, .wall-2d, .wall-photo { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wall-gl, .wall-2d { cursor: grab; }
+.wall-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
 .wall-gl:active { cursor: grabbing; }
 .hint { font-size: var(--step--1); color: var(--muted); }
 .segs { display: flex; flex-wrap: wrap; gap: 8px; }

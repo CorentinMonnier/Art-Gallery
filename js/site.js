@@ -124,9 +124,24 @@ export function renderFooter() {
 // ── Couleur d'ambiance ───────────────────────────────────────
 // La boutique reste sobre (gris perle). Seul un halo très discret
 // derrière la toile 3D reprend la couleur de l'œuvre en cours.
+// Saturation d'une couleur (0 = gris, 1 = couleur pure)
+function saturation(hex) {
+  const h = hex.replace("#", "");
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  return max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
+}
+
+// Le fond reprend les couleurs de l'œuvre : ses deux teintes les plus
+// vives et sa couleur de fond, en grands halos flous derrière le verre.
 export function applyPalette(art, { persist = true } = {}) {
-  const glow = art.colors[0] || "#c9c9c6";
-  document.documentElement.style.setProperty("--glow", glow);
+  const vivid = [...art.colors].sort((a, b) => saturation(b) - saturation(a));
+  const s = document.documentElement.style;
+  s.setProperty("--c1", vivid[0]);
+  s.setProperty("--c2", vivid[1] || vivid[0]);
+  s.setProperty("--c3", art.ground);
+  s.setProperty("--glow", vivid[0]);
   if (persist) store.set("palette", art.id, true);
 }
 
