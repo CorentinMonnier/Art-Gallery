@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vif | Art abstrait coloré, imprimé sur toile</title>
+  <meta name="description" content="Toiles abstraites colorées imaginées avec l'IA, imprimées en qualité galerie et livrées en Europe.">
+  <meta name="theme-color" content="#1B1446">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231B1446'/%3E%3Ccircle cx='20' cy='12' r='7' fill='%23FF5A36'/%3E%3Cpath d='M4 30a10 10 0 0 1 20 0z' fill='%23FFC93C'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500;1,6..96,600&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Three.js (3D) chargé depuis un CDN -->
+  <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js"}}</script>
+</head>
+<body data-page="home" data-title="title.home">
+  <header id="site-header"></header>
+  <main>
+    <section class="wrap hero">
+      <div class="hero-text">
+        <h1 data-i18n="hero.title">De l'art qui ose la couleur.</h1>
+        <p data-i18n="hero.sub">Des toiles abstraites imaginées avec l'IA, imprimées en qualité galerie et livrées partout en Europe.</p>
+        <div class="actions">
+          <a class="btn" href="collection.html" data-i18n="hero.cta">Voir la collection</a>
+          <a class="btn ghost" href="comment.html" data-i18n="hero.cta2">Comment c'est fait</a>
+        </div>
+      </div>
+      <div class="hero-art">
+        <div class="hero-stage" id="hero-stage" role="img" data-i18n-aria="hero.stage" aria-label="Une toile qui se peint en 3D"></div>
+        <p class="hero-caption" id="hero-caption" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 data-i18n="home.featured">À l'affiche</h2>
+          <p data-i18n="home.featured.sub">Six œuvres de la collection, prêtes à rejoindre votre mur.</p>
+        </div>
+        <a class="btn ghost" href="collection.html" data-i18n="home.all">Toute la collection</a>
+      </div>
+      <div class="gallery" id="featured"></div>
+    </section>
+
+    <section class="wrap room-band">
+      <img id="room-preview" alt="" width="1200" height="900">
+      <div class="copy">
+        <h2 data-i18n="home.room.title">Voyez-la chez vous avant de la commander.</h2>
+        <p data-i18n="home.room.text">Sur chaque œuvre, choisissez la pièce et la taille.</p>
+        <a class="btn" href="oeuvre.html?id=maree-haute" data-i18n="home.room.cta">Essayer avec Marée haute</a>
+      </div>
+    </section>
+
+    <section class="wrap promise">
+      <h2 data-i18n="home.ai.title">Imaginées avec l'IA, imprimées pour durer.</h2>
+      <div class="promise-grid">
+        <div><h3 data-i18n="home.ai.1.t"></h3><p data-i18n="home.ai.1.p"></p></div>
+        <div><h3 data-i18n="home.ai.2.t"></h3><p data-i18n="home.ai.2.p"></p></div>
+        <div><h3 data-i18n="home.ai.3.t"></h3><p data-i18n="home.ai.3.p"></p></div>
+      </div>
+      <a class="more" href="comment.html" data-i18n="home.ai.more">En savoir plus</a>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="js/pages/home.js"></script>
+</body>
+</html>
