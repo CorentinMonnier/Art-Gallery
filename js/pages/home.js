@@ -1,6 +1,7 @@
 import { getArtwork, ARTWORKS } from "../data.js";
 import { initSite, preloadImages, applyPalette } from "../site.js";
 import { mountCarousel } from "../carousel.js";
+import { mountDrop } from "../drop.js";
 import { drawRoom2D, drawRoomPhoto, loadRoomPhoto } from "../wall.js";
 import { renderArtwork, makeCanvas, RATIO } from "../art.js";
 
@@ -20,6 +21,9 @@ mountCarousel($("ring-stage"), {
   pause: $("ring-pause"),
   controls: $("ring-controls"),
 });
+
+// Le drop des éditions limitées
+mountDrop(document.getElementById("drop"));
 
 // Aperçu "chez vous" (image fixe de Marée haute dans un salon)
 const roomArt = getArtwork("maree-haute");

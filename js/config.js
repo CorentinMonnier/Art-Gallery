@@ -24,6 +24,21 @@ export const CONFIG = {
 
   email: "contact@exemple.ch",
 
+  // Composer son mur : réduction selon le nombre d'œuvres de l'ensemble.
+  sets: { 2: 0.10, 3: 0.15 },
+
+  // Éditions limitées : nombre d'exemplaires numérotés et supplément de prix (CHF).
+  // Les œuvres concernées ont `limited: true` dans data.js.
+  limited: { edition: 50, surcharge: 40 },
+
+  // Le drop : date de sortie des éditions limitées (heure de Suisse).
+  drop: { date: "2026-11-01T18:00:00+01:00" },
+
+  // Liste d'attente : adresse du service d'emailing qui recevra les inscriptions
+  // (Shopify Email, Mailchimp, Formspree…). Tant que c'est null, le formulaire
+  // explique que l'inscription ouvrira avec la boutique.
+  waitlistEndpoint: null,
+
   // Remplace "#" par l'adresse de tes comptes quand ils existent.
   socials: {
     instagram: "#",

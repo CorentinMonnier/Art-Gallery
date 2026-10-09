@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Galerie 3D | Vif</title>
+  <meta name="description" content="Toiles abstraites colorées imaginées avec l'IA, imprimées en qualité galerie et livrées en Europe.">
+  <meta name="theme-color" content="#F4F4F2">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EDEDEB'/%3E%3Ccircle cx='20' cy='12' r='7' fill='%23FF5A36'/%3E%3Cpath d='M4 30a10 10 0 0 1 20 0z' fill='%23FFC93C'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500;1,6..96,600&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Three.js (3D) chargé depuis un CDN -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head>
+<body data-page="gallery" data-title="title.gallery">
+  <header id="site-header"></header>
+  <main>
+    <section class="gallery-hero">
+      <div class="gallery-stage" id="gallery-stage" tabindex="0" role="region" data-i18n-aria="gallery.label" aria-label="Galerie virtuelle en 3D">
+        <div class="gallery-panel glass" id="gallery-panel">
+          <button class="icon-btn" type="button" id="g-prev" data-i18n-aria="home.ring.prev" aria-label="Œuvre précédente">‹</button>
+          <div class="ring-info" aria-live="polite">
+            <span class="ring-title" id="g-title"></span>
+            <span class="ring-price" id="g-price"></span>
+          </div>
+          <button class="icon-btn" type="button" id="g-next" data-i18n-aria="home.ring.next" aria-label="Œuvre suivante">›</button>
+          <div class="ring-actions">
+            <button class="btn ghost" type="button" id="g-back" data-i18n="gallery.back" hidden>Revenir dans l'allée</button>
+            <a class="btn" id="g-link" href="collection.html" data-i18n="home.ring.see" hidden>Voir l'œuvre</a>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="wrap" id="gallery-fallback" hidden>
+      <div class="page-head section-head"><h1 data-i18n="title.gallery">Galerie 3D</h1></div>
+      <p class="note" data-i18n="gallery.no3d">Votre appareil n'affiche pas la 3D : voici les œuvres de la galerie.</p>
+      <div class="gallery" id="gallery-grid"></div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="js/pages/galerie.js"></script>
+</body>
+</html>

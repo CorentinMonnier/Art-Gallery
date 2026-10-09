@@ -12,26 +12,37 @@
 // ─────────────────────────────────────────────────────────────
 
 import { renderArtwork, makeCanvas, RATIO, rng } from "./art.js";
+import { weaveTexture } from "./fx.js";
 
-// Réglages de chaque pièce.
-// photo.x / photo.y : centre de la toile dans la photo (0 à 1, de gauche à droite / de haut en bas)
-// photo.meter       : largeur d'1 mètre de mur, en fraction de la largeur de la photo
-//                     (astuce : largeur du canapé en pixels ÷ largeur de la photo ÷ 2,2)
-// photo.light       : -1 si la lumière vient de la gauche, 1 si elle vient de la droite
+// Réglages de chaque pièce (calés sur les photos du dossier images/rooms).
+// photo.x      : centre horizontal de la toile dans la photo (0 = bord gauche, 1 = bord droit)
+// photo.bottom : bas de la toile dans la photo (0 = haut, 1 = bas), environ 20-30 cm au-dessus du meuble
+// photo.meter  : largeur d'1 mètre de mur, en fraction de la largeur de la photo
+//                (ici : largeur du canapé, de la tête de lit ou du bureau en pixels ÷ largeur réelle ÷ largeur de la photo)
+// photo.light  : -1 si la lumière vient de la gauche, 1 si elle vient de la droite
 export const ROOMS = {
   salon: {
     wall: "#E8E4DD", floor: "#B08A63", art: 1.55,
-    photo: { src: "images/rooms/salon.jpg", x: 0.5, y: 0.34, meter: 0.2, light: -1 },
+    photo: { src: "images/rooms/salon.jpg", x: 0.501, bottom: 0.553, meter: 0.246, light: -1 },
   },
   chambre: {
     wall: "#DCE0E3", floor: "#C9B394", art: 1.62,
-    photo: { src: "images/rooms/chambre.jpg", x: 0.5, y: 0.3, meter: 0.2, light: -1 },
+    photo: { src: "images/rooms/chambre.jpg", x: 0.507, bottom: 0.49, meter: 0.214, light: -1 },
   },
   bureau: {
     wall: "#E4DFD3", floor: "#8E6C4F", art: 1.6,
-    photo: { src: "images/rooms/bureau.jpg", x: 0.5, y: 0.3, meter: 0.2, light: -1 },
+    photo: { src: "images/rooms/bureau.jpg", x: 0.501, bottom: 0.463, meter: 0.283, light: -1 },
   },
 };
+
+// Couleurs de mur proposées dans la vue 3D
+export const WALL_COLORS = [
+  { id: "auto", hex: null },
+  { id: "white", hex: "#F2F1EE" },
+  { id: "sage", hex: "#B9C4B0" },
+  { id: "clay", hex: "#D7B9A3" },
+  { id: "navy", hex: "#2F3B52" },
+];
 
 const FURN = {
   sofa: "#5A6273", sofaLight: "#666F80", pillow: "#C9A227", pillow2: "#E9E1D3", rug: "#D8D0C2",
@@ -52,7 +63,7 @@ export function artCanvas(art) {
   return c;
 }
 
-// ── Photos des pièces ────────────────────────────────────────
+// ── Photos ───────────────────────────────────────────────────
 const photoCache = new Map();
 export function loadRoomPhoto(roomId) {
   if (!photoCache.has(roomId)) {
@@ -66,33 +77,31 @@ export function loadRoomPhoto(roomId) {
   return photoCache.get(roomId);
 }
 
-// Dessine la photo de la pièce (cadrée sur la toile) et la toile accrochée.
-export function drawRoomPhoto(ctx, w, h, photo, img, roomId, format) {
-  const p = ROOMS[roomId].photo;
-  const pw = photo.naturalWidth, ph = photo.naturalHeight;
+// Dessine une photo en "cover" dans le cadre, centrée sur le point (fx, fy).
+function coverPhoto(ctx, w, h, photo, fx, fy) {
+  const pw = photo.naturalWidth || photo.width, ph = photo.naturalHeight || photo.height;
   const scale = Math.max(w / pw, h / ph);
   const sw = pw * scale, sh = ph * scale;
-  const ox = Math.min(0, Math.max(w - sw, w / 2 - p.x * sw));
-  const oy = Math.min(0, Math.max(h - sh, h * 0.42 - p.y * sh));
+  const ox = Math.min(0, Math.max(w - sw, w / 2 - fx * sw));
+  const oy = Math.min(0, Math.max(h - sh, h * 0.45 - fy * sh));
   ctx.drawImage(photo, ox, oy, sw, sh);
+  return { ox, oy, sw, sh };
+}
 
-  const m = p.meter * sw;                 // 1 mètre en pixels
-  const aw = (format.w / 100) * m, ah = (format.h / 100) * m;
-  const cx = ox + p.x * sw, cy = oy + p.y * sh;
-  const x = cx - aw / 2, y = cy - ah / 2;
-  const depth = 0.035 * m;                // épaisseur du châssis
-
+// Accroche une toile : ombres réalistes, image, lumière de la pièce.
+// x, y = coin haut gauche, aw × ah = taille en pixels, m = pixels pour 1 mètre.
+export function hangCanvas(ctx, img, format, x, y, aw, ah, m, light = -1) {
+  const depth = 0.035 * m;  // épaisseur du châssis
   ctx.save();
-  // Grande ombre très douce, puis ombre de contact plus nette
-  ctx.fillStyle = "rgba(0,0,0,1)";
+  ctx.fillStyle = "#000";
   ctx.shadowColor = "rgba(20,16,12,0.22)";
   ctx.shadowBlur = depth * 9;
-  ctx.shadowOffsetX = -p.light * depth * 1.2;
+  ctx.shadowOffsetX = -light * depth * 1.2;
   ctx.shadowOffsetY = depth * 2.2;
   ctx.fillRect(x, y, aw, ah);
   ctx.shadowColor = "rgba(20,16,12,0.38)";
   ctx.shadowBlur = depth * 2;
-  ctx.shadowOffsetX = -p.light * depth * 0.6;
+  ctx.shadowOffsetX = -light * depth * 0.6;
   ctx.shadowOffsetY = depth * 0.9;
   ctx.fillRect(x, y, aw, ah);
   ctx.restore();
@@ -101,16 +110,38 @@ export function drawRoomPhoto(ctx, w, h, photo, img, roomId, format) {
   const iw = img.width * fx, ih = img.height * fy;
   ctx.drawImage(img, (img.width - iw) / 2, (img.height - ih) / 2, iw, ih, x, y, aw, ah);
 
-  // Lumière de la pièce sur la toile : plus claire côté fenêtre
-  const g = ctx.createLinearGradient(p.light < 0 ? x : x + aw, y, p.light < 0 ? x + aw : x, y + ah);
+  const g = ctx.createLinearGradient(light < 0 ? x : x + aw, y, light < 0 ? x + aw : x, y + ah);
   g.addColorStop(0, "rgba(255,250,240,0.10)");
   g.addColorStop(0.55, "rgba(255,255,255,0)");
   g.addColorStop(1, "rgba(0,0,0,0.10)");
   ctx.fillStyle = g;
   ctx.fillRect(x, y, aw, ah);
-  // Fine arête du châssis côté ombre
   ctx.fillStyle = "rgba(0,0,0,0.18)";
-  ctx.fillRect(p.light < 0 ? x + aw - 1 : x, y, 1, ah);
+  ctx.fillRect(light < 0 ? x + aw - 1 : x, y, 1, ah);
+}
+
+// Dessine une pièce avec une ou plusieurs toiles alignées par le bas.
+// items : [{ img, format, dx }] où dx est le décalage horizontal du centre, en mètres.
+// Renvoie la position de chaque toile (en pixels du canvas).
+export function drawArtsOnRoom(ctx, w, h, photo, roomId, items) {
+  const p = ROOMS[roomId].photo;
+  const tallest = Math.max(...items.map((it) => it.format.h)) / 100;
+  // On cadre sur le milieu de la composition.
+  const tmpScale = Math.max(w / photo.naturalWidth, h / photo.naturalHeight);
+  const metersToFrac = p.meter * photo.naturalWidth * tmpScale / (photo.naturalHeight * tmpScale);
+  const { ox, oy, sw, sh } = coverPhoto(ctx, w, h, photo, p.x, p.bottom - (tallest / 2) * metersToFrac);
+  const m = p.meter * sw;
+  const cx = ox + p.x * sw, by = oy + p.bottom * sh;
+  return items.map((it) => {
+    const aw = (it.format.w / 100) * m, ah = (it.format.h / 100) * m;
+    const x = cx + (it.dx || 0) * m - aw / 2, y = by - ah;
+    hangCanvas(ctx, it.img, it.format, x, y, aw, ah, m, p.light);
+    return { x, y, w: aw, h: ah };
+  });
+}
+
+export function drawRoomPhoto(ctx, w, h, photo, img, roomId, format) {
+  return drawArtsOnRoom(ctx, w, h, photo, roomId, [{ img, format, dx: 0 }])[0];
 }
 
 // ── Version 2D simple (secours si ni photo ni 3D) ────────────
@@ -161,9 +192,15 @@ export function drawRoom2D(ctx, w, h, img, roomId, format) {
 }
 
 // ── Composant principal ──────────────────────────────────────
+// Vues : "photo" (photo de la pièce), "3d" (pièce en 3D), "home" (photo du client).
 export async function mountWall(container, art, { room = "salon", format, onView }) {
   const img = artCanvas(art);
-  const state = { room, format, view: null, shown: { w: format.w, h: format.h } };
+  const state = {
+    room, format, view: null,
+    shown: { w: format.w, h: format.h },
+    rect: null,                       // position de la toile (pixels CSS, dans le cadre)
+    home: null,                       // { photo, x, y, meter } pour la vue "Chez moi"
+  };
 
   const photoCanvas = makeCanvas(10, 10);
   photoCanvas.className = "wall-photo";
@@ -176,18 +213,42 @@ export async function mountWall(container, art, { room = "salon", format, onView
     return scene3d;
   };
 
-  const drawPhoto = async () => {
-    const photo = await loadRoomPhoto(state.room);
-    if (!photo || state.view !== "photo") return;
+  const sizeCanvas = () => {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = container.clientWidth || 600, h = container.clientHeight || 450;
     photoCanvas.width = Math.round(w * dpr);
     photoCanvas.height = Math.round(h * dpr);
-    drawRoomPhoto(photoCanvas.getContext("2d"), photoCanvas.width, photoCanvas.height, photo, img, state.room, state.shown);
+    return dpr;
   };
-  new ResizeObserver(() => drawPhoto()).observe(container);
 
-  // Changement de taille en douceur dans la vue photo
+  const draw = async () => {
+    if (state.view === "photo") {
+      const photo = await loadRoomPhoto(state.room);
+      if (!photo || state.view !== "photo") return;
+      const dpr = sizeCanvas();
+      const r = drawRoomPhoto(photoCanvas.getContext("2d"), photoCanvas.width, photoCanvas.height, photo, img, state.room, state.shown);
+      state.rect = { x: r.x / dpr, y: r.y / dpr, w: r.w / dpr, h: r.h / dpr };
+    } else if (state.view === "home" && state.home) {
+      const dpr = sizeCanvas();
+      const ctx = photoCanvas.getContext("2d");
+      const W = photoCanvas.width, H = photoCanvas.height;
+      const ph = state.home.photo;
+      const scale = Math.min(W / ph.width, H / ph.height);     // photo entière, sans recadrage
+      const pw = ph.width * scale, phh = ph.height * scale;
+      const ox = (W - pw) / 2, oy = (H - phh) / 2;
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(ph, ox, oy, pw, phh);
+      const m = state.home.meter * pw;
+      const aw = (state.shown.w / 100) * m, ah = (state.shown.h / 100) * m;
+      const x = ox + state.home.x * pw - aw / 2, y = oy + state.home.y * phh - ah / 2;
+      hangCanvas(ctx, img, state.shown, x, y, aw, ah, m, -1);
+      state.rect = { x: x / dpr, y: y / dpr, w: aw / dpr, h: ah / dpr };
+      state.home.box = { ox: ox / dpr, oy: oy / dpr, pw: pw / dpr, ph: phh / dpr };
+    }
+  };
+  new ResizeObserver(() => draw()).observe(container);
+
+  // Changement de taille en douceur
   let anim = 0;
   const animateFormat = () => {
     cancelAnimationFrame(anim);
@@ -198,27 +259,50 @@ export async function mountWall(container, art, { room = "salon", format, onView
       const p = Math.min(1, (now - t0) / 450);
       const e = 1 - (1 - p) ** 3;
       state.shown = { w: from.w + (to.w - from.w) * e, h: from.h + (to.h - from.h) * e };
-      drawPhoto();
+      draw();
       if (p < 1) anim = requestAnimationFrame(step);
     };
     anim = requestAnimationFrame(step);
   };
 
+  // Vue "Chez moi" : on fait glisser la toile sur la photo du client
+  let drag = null;
+  photoCanvas.addEventListener("pointerdown", (e) => {
+    if (state.view !== "home" || !state.home) return;
+    const r = photoCanvas.getBoundingClientRect();
+    drag = { x: e.clientX - r.left, y: e.clientY - r.top, hx: state.home.x, hy: state.home.y };
+    photoCanvas.setPointerCapture(e.pointerId);
+    photoCanvas.classList.add("dragging");
+  });
+  photoCanvas.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = photoCanvas.getBoundingClientRect();
+    const b = state.home.box;
+    state.home.x = Math.max(0, Math.min(1, drag.hx + (e.clientX - r.left - drag.x) / b.pw));
+    state.home.y = Math.max(0, Math.min(1, drag.hy + (e.clientY - r.top - drag.y) / b.ph));
+    draw();
+  });
+  const endDrag = () => { drag = null; photoCanvas.classList.remove("dragging"); };
+  photoCanvas.addEventListener("pointerup", endDrag);
+  photoCanvas.addEventListener("pointercancel", endDrag);
+
   const hasPhoto = async (r = state.room) => !!(await loadRoomPhoto(r));
 
   const setView = async (view) => {
     if (view === "photo" && !(await hasPhoto())) view = "3d";
+    if (view === "home" && !state.home) view = (await hasPhoto()) ? "photo" : "3d";
     state.view = view;
-    photoCanvas.hidden = view !== "photo";
+    photoCanvas.hidden = view === "3d";
+    photoCanvas.classList.toggle("is-home", view === "home");
     if (view === "3d") {
-      const s = await ensure3D();
-      s.el.hidden = false;
-      s.setRoom(state.room);
-      s.setFormat(state.format, true);
+      const s3 = await ensure3D();
+      s3.el.hidden = false;
+      s3.setRoom(state.room);
+      s3.setFormat(state.format, true);
     } else {
       if (scene3d) scene3d.el.hidden = true;
       state.shown = { w: state.format.w, h: state.format.h };
-      drawPhoto();
+      await draw();
     }
     onView?.(view);
     return view;
@@ -230,17 +314,52 @@ export async function mountWall(container, art, { room = "salon", format, onView
     setView,
     hasPhoto,
     get view() { return state.view; },
+    get hasHome() { return !!state.home; },
     async setRoom(r) {
       state.room = r;
       if (state.view === "photo") {
-        if (await hasPhoto(r)) drawPhoto();
+        if (await hasPhoto(r)) draw();
         else await setView("3d");
       } else scene3d?.setRoom(r);
     },
     setFormat(f) {
       state.format = f;
-      if (state.view === "photo") animateFormat();
-      else scene3d?.setFormat(f);
+      if (state.view === "3d") scene3d?.setFormat(f);
+      else animateFormat();
+    },
+    // Photo du client (fichier choisi sur son appareil, jamais envoyé)
+    async setHomePhoto(file) {
+      const url = URL.createObjectURL(file);
+      const ph = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = url;
+      });
+      state.home = { photo: ph, x: 0.5, y: 0.38, meter: 0.25 };
+      return setView("home");
+    },
+    // Taille de la toile sur la photo du client (0 à 1)
+    setHomeScale(v) {
+      if (!state.home) return;
+      state.home.meter = 0.08 + v * 0.5;
+      draw();
+    },
+    get homeScale() { return state.home ? (state.home.meter - 0.08) / 0.5 : 0.34; },
+    setWallColor(hex) { scene3d?.setWallColor?.(hex); },
+    // Image de la vue actuelle, pour l'enregistrer
+    snapshot() {
+      return new Promise((resolve) => photoCanvas.toBlob(resolve, "image/jpeg", 0.92));
+    },
+    // Position de la toile à l'écran (pour l'animation de la toile qui vole)
+    artRect() {
+      const c = container.getBoundingClientRect();
+      if (state.view === "3d") {
+        const r = scene3d?.artRect?.();
+        return r ? { left: c.left + r.x, top: c.top + r.y, width: r.w, height: r.h } : null;
+      }
+      const r = state.rect;
+      return r ? { left: c.left + r.x, top: c.top + r.y, width: r.w, height: r.h } : null;
     },
   };
 }
@@ -433,7 +552,7 @@ async function mount3D(THREE, container, art, img, roomId, format) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const edge = new THREE.MeshStandardMaterial({ color: art.ground, roughness: 0.9 });
-  const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82 });
+  const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.72, bumpMap: weaveTexture(THREE, 10, 15), bumpScale: 1.2 });
   const artMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.035), [edge, edge, edge, edge, front, edge]);
   artMesh.castShadow = true;
   scene.add(artMesh);
@@ -522,21 +641,29 @@ async function mount3D(THREE, container, art, img, roomId, format) {
   scene.add(furniture);
 
   const target = new THREE.Vector3(0, 1.35, 0);
+  let wallColor = null;   // couleur choisie par le client (null = couleur de la pièce)
+  let currentRoom = roomId;
+  const paintWall = () => {
+    const c = wallColor || ROOMS[currentRoom].wall;
+    wallMat.map?.dispose();
+    wallMat.map = noiseTexture(THREE, c, 7, 512);
+    wallMat.map.repeat.set(6, 2);
+    wallMat.needsUpdate = true;
+    scene.background = new THREE.Color(c);
+  };
   const applyRoom = (id) => {
+    currentRoom = id;
     const room = ROOMS[id];
     scene.remove(furniture);
     furniture.traverse((o) => o.geometry?.dispose());
     furniture = new THREE.Group();
     builders[id](furniture);
     scene.add(furniture);
-    wallMat.map?.dispose();
     floorMat.map?.dispose();
-    wallMat.map = noiseTexture(THREE, room.wall, 7, 512);
-    wallMat.map.repeat.set(6, 2);
     floorMat.map = woodTexture(THREE, room.floor);
     floorMat.map.repeat.set(4, 2.5);
-    wallMat.needsUpdate = floorMat.needsUpdate = true;
-    scene.background = new THREE.Color(room.wall);
+    floorMat.needsUpdate = true;
+    paintWall();
     target.y = room.art - 0.2;
     artMesh.position.y = room.art;
     artShadow.position.y = room.art - 0.03;
@@ -614,9 +741,25 @@ async function mount3D(THREE, container, art, img, roomId, format) {
   };
   requestAnimationFrame(loop);
 
+  // Position de la toile à l'écran (pixels CSS dans le cadre)
+  const box3 = new THREE.Box3();
+  const v = new THREE.Vector3();
+  const artRect = () => {
+    box3.setFromObject(artMesh);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const cx of [box3.min.x, box3.max.x]) for (const cy of [box3.min.y, box3.max.y]) {
+      v.set(cx, cy, box3.max.z).project(camera);
+      const px = (v.x * 0.5 + 0.5) * container.clientWidth, py = (-v.y * 0.5 + 0.5) * container.clientHeight;
+      x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  };
+
   return {
     el,
     setRoom: applyRoom,
     setFormat: (f, instant) => applyFormat(f, instant),
+    setWallColor: (hex) => { wallColor = hex; paintWall(); },
+    artRect,
   };
 }

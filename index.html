@@ -41,6 +41,31 @@
       </div>
     </section>
 
+    <section class="wrap" id="drop">
+      <div class="drop glass">
+        <div class="drop-head">
+          <span class="badge" data-i18n="drop.kicker">Éditions limitées</span>
+          <h2 id="drop-title">Le premier drop</h2>
+          <p id="drop-text"></p>
+          <div class="countdown" id="countdown" role="timer" aria-live="off">
+            <div data-unit="d"><span class="cd-num">00</span><span class="cd-label"></span></div>
+            <div data-unit="h"><span class="cd-num">00</span><span class="cd-label"></span></div>
+            <div data-unit="m"><span class="cd-num">00</span><span class="cd-label"></span></div>
+            <div data-unit="s"><span class="cd-num">00</span><span class="cd-label"></span></div>
+          </div>
+          <form class="waitlist" id="waitlist" novalidate>
+            <label for="waitlist-email" data-i18n="drop.form.label">Recevoir un email à la sortie</label>
+            <div class="waitlist-row">
+              <input type="email" id="waitlist-email" name="email" autocomplete="email" required data-i18n-placeholder="drop.form.placeholder" placeholder="votre@email.ch">
+              <button class="btn" type="submit" data-i18n="drop.form.cta">M'avertir</button>
+            </div>
+            <p class="note" id="waitlist-msg" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="gallery drop-works" id="drop-works"></div>
+      </div>
+    </section>
+
     <section class="wrap"><div class="room-band glass">
       <img id="room-preview" alt="" width="1200" height="900">
       <div class="copy">

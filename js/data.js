@@ -13,6 +13,7 @@
 export const ARTWORKS = [
   {
     id: "soleil-de-minuit",
+    limited: true,
     seed: 1043,
     title: { fr: "Soleil de minuit", en: "Midnight Sun" },
     text: {
@@ -52,6 +53,7 @@ export const ARTWORKS = [
   },
   {
     id: "maree-haute",
+    limited: true,
     seed: 4127,
     title: { fr: "Marée haute", en: "High Tide" },
     text: {
@@ -104,6 +106,7 @@ export const ARTWORKS = [
   },
   {
     id: "neon-des-alpes",
+    limited: true,
     seed: 8861,
     title: { fr: "Néon des Alpes", en: "Alpine Neon" },
     text: {
@@ -142,6 +145,8 @@ export const ARTWORKS = [
     shopifyHandle: null,
   },
 ];
+
+export const LIMITED = ARTWORKS.filter((a) => a.limited);
 
 export function getArtwork(id) {
   return ARTWORKS.find((a) => a.id === id) || null;

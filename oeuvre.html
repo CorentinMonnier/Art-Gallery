@@ -21,13 +21,34 @@
       <div class="wall-col">
         <div class="wall-stage" id="wall-stage" role="img" data-i18n-aria="work.stage" aria-label="Aperçu de l'œuvre accrochée dans une pièce"></div>
         <div class="wall-controls">
-          <div class="segs" id="rooms" role="group" data-i18n-aria="work.room" aria-label="Pièce"></div>
           <div class="segs" id="views" role="group" data-i18n-aria="work.view" aria-label="Vue">
             <button type="button" class="seg" data-view="photo" aria-pressed="true" data-i18n="work.view.photo">Photo</button>
             <button type="button" class="seg" data-view="3d" aria-pressed="false">3D</button>
+            <button type="button" class="seg" data-view="home" aria-pressed="false" data-i18n="work.view.home">Chez moi</button>
           </div>
+          <div class="segs" id="rooms" role="group" data-i18n-aria="work.room" aria-label="Pièce"></div>
         </div>
+
+        <!-- Outils de la vue "Chez moi" -->
+        <div class="view-tools glass" id="tools-home" hidden>
+          <label class="range" for="home-scale"><span data-i18n="home.tool.size">Taille sur la photo</span>
+            <input type="range" id="home-scale" min="0" max="1" step="0.01" value="0.34">
+          </label>
+          <div class="tool-row">
+            <button type="button" class="btn ghost" id="home-change" data-i18n="home.tool.change">Changer de photo</button>
+            <button type="button" class="btn ghost" id="home-save" data-i18n="home.tool.save">Enregistrer l'image</button>
+          </div>
+          <p class="note" data-i18n="home.tool.privacy">Votre photo reste sur votre appareil : elle n'est envoyée nulle part.</p>
+        </div>
+
+        <!-- Outils de la vue 3D : couleur du mur -->
+        <div class="view-tools glass" id="tools-3d" hidden>
+          <span class="tool-label" data-i18n="work.wallcolor">Couleur du mur</span>
+          <div class="swatches" id="swatches" role="group" data-i18n-aria="work.wallcolor" aria-label="Couleur du mur"></div>
+        </div>
+
         <p class="hint" id="wall-hint"></p>
+        <input type="file" id="home-file" accept="image/*" hidden>
       </div>
 
       <div class="buy glass">
@@ -36,6 +57,7 @@
           <p class="meta"><span data-i18n="card.technique">Imaginé par IA, impression sur toile</span>, <span data-i18n="work.year">2026</span></p>
         </div>
         <p id="work-text"></p>
+        <div class="limited-box" id="limited-box" hidden></div>
         <fieldset>
           <legend data-i18n="work.size">Taille de la toile</legend>
           <div id="sizes" class="sizes"></div>
@@ -46,7 +68,11 @@
           <span class="note" data-i18n="work.prices">Prix provisoires, livraison en sus.</span>
         </div>
         <button class="btn" id="add-to-cart" type="button" data-i18n="work.add">Ajouter au panier</button>
-        <p class="note" data-i18n="work.soon">La boutique ouvre bientôt.</p>
+        <p class="note" id="work-soon" data-i18n="work.soon">La boutique ouvre bientôt.</p>
+        <div class="tool-row">
+          <button class="btn ghost" id="open-ar" type="button" data-i18n="ar.open">Voir sur mon mur (réalité augmentée)</button>
+          <a class="btn ghost" id="compose-link" href="mur.html" data-i18n="work.compose">Composer un mur avec cette œuvre</a>
+        </div>
         <div class="facts">
           <p data-i18n="work.details"></p>
           <p data-i18n="work.ai"></p>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Composer mon mur | Vif</title>
+  <meta name="description" content="Toiles abstraites colorées imaginées avec l'IA, imprimées en qualité galerie et livrées en Europe.">
+  <meta name="theme-color" content="#F4F4F2">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EDEDEB'/%3E%3Ccircle cx='20' cy='12' r='7' fill='%23FF5A36'/%3E%3Cpath d='M4 30a10 10 0 0 1 20 0z' fill='%23FFC93C'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500;1,6..96,600&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Three.js (3D) chargé depuis un CDN -->
+  <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+</head>
+<body data-page="compose" data-title="title.compose">
+  <header id="site-header"></header>
+  <main>
+    <section class="wrap page-head">
+      <h1 data-i18n="title.compose">Composer mon mur</h1>
+      <p data-i18n="compose.sub">Assemblez 2 ou 3 œuvres au-dessus de votre canapé, de votre lit ou de votre bureau.</p>
+    </section>
+
+    <section class="wrap compose-layout">
+      <div class="wall-col">
+        <div class="wall-stage" id="compose-stage" role="img" data-i18n-aria="compose.stage" aria-label="Aperçu de l'ensemble accroché"></div>
+        <div class="wall-controls">
+          <div class="segs" id="layouts" role="group" data-i18n-aria="compose.layout" aria-label="Disposition"></div>
+          <div class="segs" id="c-rooms" role="group" data-i18n-aria="work.room" aria-label="Pièce"></div>
+        </div>
+        <p class="hint" data-i18n="compose.hint">Touchez un emplacement sur l'image, puis choisissez l'œuvre à y mettre.</p>
+      </div>
+
+      <div class="buy glass">
+        <div>
+          <h2 class="compose-h" data-i18n="compose.pick">Choisir les œuvres</h2>
+          <p class="note" id="slot-label"></p>
+        </div>
+        <div class="picker" id="picker" role="listbox" data-i18n-aria="compose.pick" aria-label="Choisir les œuvres"></div>
+        <dl class="summary" id="summary"></dl>
+        <button class="btn" id="add-set" type="button" data-i18n="compose.add" disabled>Ajouter l'ensemble au panier</button>
+        <p class="note" data-i18n="work.soon">La boutique ouvre bientôt.</p>
+      </div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="js/pages/mur.js"></script>
+</body>
+</html>

@@ -11,17 +11,31 @@ Site vitrine d'une marque d'art abstrait imaginé avec l'IA. Nom provisoire : **
 - Français et anglais (bouton FR / EN en haut à droite).
 - Si la 3D n'est pas disponible sur un appareil, le site affiche automatiquement une version 2D.
 
+## Les pages
+- `index.html` : accueil avec le manège 3D, le drop des éditions limitées, l'aperçu « chez vous ».
+- `collection.html` : toutes les œuvres.
+- `oeuvre.html?id=...` : fiche œuvre, avec 3 vues (Photo, 3D, Chez moi), la réalité augmentée et le lien « Composer un mur ».
+- `galerie.html` : la galerie virtuelle en 3D.
+- `mur.html` : composer un mur de 2 ou 3 œuvres, avec réduction d'ensemble.
+- `comment.html`, `faq.html`, `apropos.html` : pages d'information.
+
 ## Où modifier quoi
 
 | Je veux changer… | Fichier |
 |---|---|
 | Le nom de la marque, les prix, l'email, les réseaux | `js/config.js` |
+| La réduction des ensembles, les éditions limitées, la date du drop, la liste d'attente | `js/config.js` |
+| Quelles œuvres sont en édition limitée (`limited: true`) | `js/data.js` |
 | Les œuvres (titres, textes, couleurs, vraies images) | `js/data.js` |
 | Les textes courts (boutons, titres) | `js/i18n.js` |
 | Les longs textes (FAQ, À propos…) | directement dans les fichiers `.html` |
 | Les couleurs générales, polices, mise en page | `css/style.css` |
 | L'animation 3D de l'accueil | `js/hero.js` |
-| La pièce 3D des fiches œuvres | `js/wall.js` |
+| Les pièces (photos, 3D, « Chez moi ») des fiches œuvres | `js/wall.js` |
+| La galerie virtuelle | `js/gallery.js` |
+| La réalité augmentée | `js/ar.js` |
+| La toile qui vole entre les pages | `js/fly.js` |
+| Le compte à rebours et la liste d'attente | `js/drop.js` |
 
 ### Ajouter tes vraies œuvres
 1. Mets l'image dans un dossier `images/` (format portrait 2:3).

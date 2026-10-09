@@ -12,7 +12,9 @@
 
 import { ARTWORKS } from "./data.js";
 import { renderArtwork, makeCanvas, RATIO } from "./art.js";
-import { applyPalette, L, t, price, minPrice, cardHTML } from "./site.js";
+import { applyPalette, L, t, price, minPrice, cardHTML, badgeHTML, onTilt, askMotion } from "./site.js";
+import { rememberFlight } from "./fly.js";
+import { weaveTexture } from "./fx.js";
 
 const AUTO_DELAY = 4.5;   // secondes entre deux avancées automatiques
 const RESUME_AFTER = 6;   // l'auto-rotation reprend X s après la dernière interaction
@@ -61,7 +63,7 @@ function webglAvailable() {
 // Met à jour le cartel (titre, prix, lien) de la toile mise en avant.
 function updateCaption(ui, art) {
   ui.title.textContent = L(art.title);
-  ui.price.textContent = `${t("card.from")} ${price(minPrice())}`;
+  ui.price.innerHTML = `${t("card.from")} ${price(minPrice(art))}${art.limited ? ` · ${badgeHTML(art).replace("badge", "badge inline")}` : ""}`;
   ui.link.href = `oeuvre.html?id=${art.id}`;
   ui.panel.classList.remove("swap");
   void ui.panel.offsetWidth; // relance l'animation CSS
@@ -123,6 +125,11 @@ function mount3D(THREE, stage, ui, reduced) {
   const ring = new THREE.Group();
   scene.add(ring);
   const back = new THREE.MeshStandardMaterial({ color: "#E9E6E0", roughness: 1 });
+  const weave = weaveTexture(THREE, 6, 9);
+  // Reflet qui suit la souris (ou l'inclinaison du téléphone) sur la toile de face
+  const glint = new THREE.PointLight(0xffffff, 9, 0, 2);
+  glint.position.set(0, 0.6, R + 2.2);
+  scene.add(glint);
   const items = ARTWORKS.map((art, i) => {
     const c = makeCanvas(512, Math.round(512 * RATIO));
     renderArtwork(c.getContext("2d"), art, 512);
@@ -130,7 +137,8 @@ function mount3D(THREE, stage, ui, reduced) {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     const edge = new THREE.MeshStandardMaterial({ color: art.ground, roughness: 0.9 });
-    const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 });
+    // Toile vivante : grain de toile en relief + surface légèrement satinée
+    const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, bumpMap: weave, bumpScale: 1.4 });
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(CW, CH, CD), [edge, edge, edge, edge, front, back]);
     mesh.castShadow = true;
     mesh.userData.index = i;
@@ -206,6 +214,7 @@ function mount3D(THREE, stage, ui, reduced) {
   };
 
   el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "mouse") askMotion();
     snapTween?.kill();
     drag = { x: e.clientX, y: e.clientY, rot: state.rot, t: performance.now(), vel: 0, lastX: e.clientX, moved: 0 };
     el.setPointerCapture(e.pointerId);
@@ -251,9 +260,26 @@ function mount3D(THREE, stage, ui, reduced) {
   stage.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") hoverStage = true; });
   stage.addEventListener("pointerleave", () => (hoverStage = false));
 
+  // Position de la toile de face à l'écran (pour la faire voler jusqu'à sa fiche)
+  const box3 = new THREE.Box3();
+  const pv = new THREE.Vector3();
+  const screenRect = (mesh) => {
+    box3.setFromObject(mesh);
+    const r = el.getBoundingClientRect();
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const x of [box3.min.x, box3.max.x]) for (const y of [box3.min.y, box3.max.y]) for (const z of [box3.min.z, box3.max.z]) {
+      pv.set(x, y, z).project(camera);
+      const px = r.left + (pv.x * 0.5 + 0.5) * r.width, py = r.top + (-pv.y * 0.5 + 0.5) * r.height;
+      x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+    }
+    return { left: x0, top: y0, width: x1 - x0, height: y1 - y0 };
+  };
+  ui.link.addEventListener("click", () => rememberFlight(ARTWORKS[active].id, screenRect(items[active].mesh)));
+
   // Ouvrir la page produit avec un petit zoom
   const open = (i) => {
     const art = ARTWORKS[i];
+    rememberFlight(art.id, screenRect(items[i].mesh));
     const go = () => (location.href = `oeuvre.html?id=${art.id}`);
     if (reduced) return go();
     tween(camera.position, { z: camera.position.z - 2.2, y: camera.position.y - 0.3, duration: 0.45, ease: "power2.in", onComplete: go });
@@ -280,13 +306,14 @@ function mount3D(THREE, stage, ui, reduced) {
   let visible = true;
   new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(stage);
 
-  // Parallaxe légère avec la souris
+  // Parallaxe et reflet : souris sur ordinateur, gyroscope sur téléphone
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   window.addEventListener("pointermove", (e) => {
     if (e.pointerType !== "mouse") return;
     pointer.tx = (e.clientX / innerWidth) * 2 - 1;
     pointer.ty = (e.clientY / innerHeight) * 2 - 1;
   }, { passive: true });
+  if (!reduced) onTilt((x, y) => { pointer.tx = x; pointer.ty = y; });
 
   settle();
   let autoTimer = 0;
@@ -328,6 +355,8 @@ function mount3D(THREE, stage, ui, reduced) {
     pointer.y += (pointer.ty - pointer.y) * 0.05;
     ring.rotation.x = pointer.y * 0.03;
     ring.position.x = pointer.x * 0.12;
+    glint.position.x = pointer.x * 1.8;
+    glint.position.y = 0.5 - pointer.y * 1.3;
 
     renderer.render(scene, camera);
   };
